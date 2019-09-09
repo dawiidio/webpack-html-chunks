@@ -1,21 +1,44 @@
 const CleanWebpackPlugin = require('clean-webpack-plugin');
-const webpack = require('webpack');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
 const path = require('path');
-const package = require('./package.json');
+const { readdirSync } = require('fs');
+
+const moduleFiles = readdirSync('./pages');
+
+const generatePluginsConfigForModules = () => moduleFiles.map(fileName => {
+  const [moduleName] = fileName.split('.');
+
+  return new HtmlWebpackPlugin({
+    filename: `${moduleName}.html`,
+    template: 'module-template.ejs',
+    chunks: [moduleName],
+    templateParameters: {
+      title: moduleName
+    }
+  })
+});
+
+const generateEntriesConfigForModules = () => moduleFiles.reduce((acc, fileName) => {
+  const [moduleName] = fileName.split('.');
+
+  return {
+    ...acc,
+    [moduleName]: path.resolve('pages', fileName)
+  };
+}, {});
 
 const IS_PROD = process.env.NODE_ENV === 'production';
 
 const config = {
-  context: path.resolve(__dirname, 'src'),
+  context: path.resolve(__dirname),
   entry: {
-    app: path.join(__dirname, 'src', 'index.jsx'),
+    ...generateEntriesConfigForModules()
   },
   mode: IS_PROD ? 'production': 'development',
   output: {
-    path: path.resolve(__dirname, 'lib'),
-    filename: 'index.js',
-    library: package.name,
-    libraryTarget:'umd'
+    path: path.resolve(__dirname, 'public'),
+    filename: '[name].bundle.js',
+    chunkFilename: '[id].bundle_[chunkhash].js',
   },
   optimization: {
     minimize: true
@@ -32,7 +55,8 @@ const config = {
     ]
   },
   plugins: [
-    new CleanWebpackPlugin(['lib'])
+    new CleanWebpackPlugin(['public']),
+    ...generatePluginsConfigForModules()
   ]
 };
 
